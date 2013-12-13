@@ -75,7 +75,7 @@ class Peer
         if(handshake[28..47] != @info_hash) then
           #puts "wrong info hash #{@meta_info_file.top_level_directory}"
           $stdout.flush
-          Thread.terminate
+          Thread.exit
         else
           #puts "correct info hash #{@meta_info_file.top_level_directory}"
           $stdout.flush
@@ -117,8 +117,8 @@ class Peer
 
           additional_data = @socket.recv(length)
 
-          # if you are not sending as much data as you advertise, we drop you
-          if(additional_data.each_byte.to_a.length != length) then Thread.terminate end
+          # if you are not sending as much data as you advertise, we drop you BOOM
+          if(additional_data.each_byte.to_a.length != length) then Thread.exit end
 
           if(debug) then
             puts "length of data to be recvd : #{length}"
@@ -130,48 +130,77 @@ class Peer
           else
             message_id = -1
           end
-
-          puts "message starts"
+          
+          
 
           new_message = Message.new(message_id, length, additional_data[1...additional_data.length])
 
-          puts "message end"
+
 
           case message_id
+
           when @keep_alive_id
-            puts "I got a keep_alive id"
+            puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
+
           when @choke_id
+            @peer_choking = true
             puts "I got choke id"
+
           when @unchoke_id
+            @peer_choking = false
             puts "I got unchoke_id"
+
           when @interested_id
+            @peer_interested = true
             puts "I got interested_id"
+
           when @not_interested_id
+            @peer_interested = false
             puts "I got not_interested_id"
+
           when @have_id
-            puts "I got have_id"
+            # update bitfield
+       
+            # Parse out numberic bitIdx
+            bitIdx = 0
+            bitIdx += new_message.payload().each_byte.to_a[0] * (2 ** 24)
+            bitIdx += new_message.payload().each_byte.to_a[1] * (2 ** 16)
+            bitIdx += new_message.payload().each_byte.to_a[2] * (2 ** 8)
+            bitIdx += new_message.payload().each_byte.to_a[3]
+
+            # Update corresponding bitIdx in bitfield
+            @bitfield.set_bit(bitIdx, true)
+
+            puts "I got have_id: #{bitIdx}"
+
           when @bitfield_id
             puts new_message.payload().each_byte.to_a.length
             @bitfield.set_bitfield_with_bitmap(new_message.payload())
             puts "I got bitfield_id"
+          
           when @request_id
             puts "I got request_id"
+
           when @piece_id
             puts "I got piece_id"
+
           when @cancel_id
             puts "I got cancel_id"
+
           when @port_id
             puts "I got port_id"
+
           else
             puts "You gave me #{message_id} -- I have no idea what to do with that."
+
           end
 
           $stdout.flush
 
         }
 
-      rescue
-        #puts $!, $@
+      rescue Timeout::Error => e
+        # puts $!, $@
         return
       end
 

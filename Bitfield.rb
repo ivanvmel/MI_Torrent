@@ -81,6 +81,7 @@ class Bitfield
     return output
   end
 
+
   def set_bit(n, t_or_f)
 
     if(n < 0 || n >= @bitfield.length) then
