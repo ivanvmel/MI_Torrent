@@ -7,7 +7,7 @@ class Metainfo
 
   attr_accessor :trackers, :info_hash, :piece_length, :pieces, :num_pieces,
   :name, :multi_file, :top_level_directory, :file_array, :peers, :good_peers,
-  :peer_threads
+  :peer_threads, :bitfield
 
   @trackers
   @info_hash
@@ -18,12 +18,10 @@ class Metainfo
   @multi_file
   @top_level_directory
   @file_array
-  @bitfield
   @peer_id
   @good_peers
   @timeout_val
   @bitfield
-  
   def initialize(file_location)
 
     @DEBUG = 1
@@ -214,16 +212,38 @@ class Metainfo
   end
 
   def run_algorithm(peer)
+
+    sleep_between = 0.5
     
     # handshake
     peer.handshake()
+    
+    sleep(sleep_between)
 
     if peer.connected == true then
 
       # keep track of the good peers
       @good_peers.push(peer)
+
+      # receive any bitfields
+      peer.recv_msg()
+      
+      sleep(sleep_between)
+
+      #send my own bitfield
+      peer.send_my_bitfield()
+            
+      sleep(sleep_between)
       
       peer.recv_msg()
+      
+      sleep(sleep_between)
+
+      # start the loop
+
+      #while true  do
+        #peer.recv_msg()
+      #end
 
     else
       return

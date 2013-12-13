@@ -44,6 +44,10 @@ class Peer
 
     @timeout_val = 10
 
+    # not set here
+    @last_recv_time
+    @last_sent_time
+
     @DEBUG = 0
 
     if @DEBUG == 1 then
@@ -67,6 +71,7 @@ class Peer
     begin
 
       Timeout::timeout(@timeout_val){
+
         @socket = TCPSocket.new(@string_ip, @port)
         @socket.write @handshake_info
 
@@ -107,7 +112,10 @@ class Peer
           data = @socket.recv(4)
 
           # make sure we actually got something
-          if data == nil then return nil end
+          if data == nil then
+            @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) };
+            Thread.exit
+          end
 
           # how many more bytes we are to recv
           length += data.each_byte.to_a[0] * (2 ** 24)
@@ -117,8 +125,18 @@ class Peer
 
           additional_data = @socket.recv(length)
 
+          puts "ADVRTIZD LENGTH : #{Thread.current.object_id} #{length}"
+          puts "ADDITION LENGTH : #{Thread.current.object_id} #{additional_data.each_byte.to_a.length}"
+
+          $stdout.flush
+
           # if you are not sending as much data as you advertise, we drop you BOOM
-          if(additional_data.each_byte.to_a.length != length) then Thread.exit end
+          if(additional_data.each_byte.to_a.length != length) then
+
+            @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+            Thread.exit
+
+          end
 
           if(debug) then
             puts "length of data to be recvd : #{length}"
@@ -130,12 +148,11 @@ class Peer
           else
             message_id = -1
           end
-          
-          
 
           new_message = Message.new(message_id, length, additional_data[1...additional_data.length])
 
-
+          # update recv time
+          @last_recv_time = Time.new
 
           case message_id
 
@@ -159,8 +176,9 @@ class Peer
             puts "I got not_interested_id"
 
           when @have_id
+
             # update bitfield
-       
+
             # Parse out numberic bitIdx
             bitIdx = 0
             bitIdx += new_message.payload().each_byte.to_a[0] * (2 ** 24)
@@ -177,7 +195,7 @@ class Peer
             puts new_message.payload().each_byte.to_a.length
             @bitfield.set_bitfield_with_bitmap(new_message.payload())
             puts "I got bitfield_id"
-          
+
           when @request_id
             puts "I got request_id"
 
@@ -192,7 +210,9 @@ class Peer
 
           else
             puts "You gave me #{message_id} -- I have no idea what to do with that."
-
+            $stdout.flush
+            @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+            Thread.exit
           end
 
           $stdout.flush
@@ -201,10 +221,44 @@ class Peer
 
       rescue Timeout::Error => e
         # puts $!, $@
-        return
+        puts "Encountered a timeout error."
+        @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+        Thread.exit
+
+      rescue Errno::ECONNRESET => e
+        puts "Connection Reset by peer."
+        @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+        Thread.exit
+        
+      rescue # any other error
+        #puts $!, $@
+        puts "Encountered a non-timeout error."
+        @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+        Thread.exit
       end
 
     end
+
+  end
+
+  def send_my_bitfield()
+
+    # I NEED A TRY - CATCH
+
+    # the + 1 is for the id
+    bitfield_length = @meta_info_file.bitfield.byte_length + 1
+    id = "\x05";
+
+    # this is used for packing
+    temp = Array.new
+    temp.push(bitfield_length)
+
+    # the > specifies the endian-ness
+    encoded_length = temp.pack("L>")
+
+    bitfield_message = "#{id}#{encoded_length}#{@meta_info_file.bitfield.struct_to_string}"
+
+    @socket.write bitfield_message
 
   end
 

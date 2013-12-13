@@ -1,5 +1,5 @@
 class Bitfield
-  attr_accessor :bitfield
+  attr_accessor :bitfield, :byte_length
 
   @bitfield
   def initialize(length)
@@ -9,6 +9,8 @@ class Bitfield
       @bitfield.push(false)
     end
 
+    @byte_length = (@bitfield.length / 8.0).ceil
+    
   end
 
   # This method converts the data structure to the sendable bitmap
@@ -62,16 +64,16 @@ class Bitfield
 
   def struct_to_ones_and_zeroes()
     output = String.new
-    
+
     counter = 1
-    
+
     for i in (0 ... @bitfield.length) do
       if(@bitfield[i] == true) then
         output.concat("1")
       else
         output.concat("0")
       end
-      
+
       if(counter % 8 == 0) then
         output.concat(" ")
       end
@@ -80,7 +82,6 @@ class Bitfield
 
     return output
   end
-
 
   def set_bit(n, t_or_f)
 
