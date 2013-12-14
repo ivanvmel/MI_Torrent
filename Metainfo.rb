@@ -45,6 +45,7 @@ class Metainfo
     @num_pieces = (dict["info"]["pieces"].length / 20)
     @piece_hashes = Array.new
     @peer_id = "MI000167890123456789"
+    #@peer_id =  "-AZ2060-123495832949"
     @good_peers = Array.new
 
     @top_level_directory = dict["info"]["name"]
@@ -267,21 +268,22 @@ class Metainfo
 
       sleep(sleep_between)
 
-      a_message = peer.create_message()
-      
-      puts a_message.get_processed_message().each_byte.to_a[9].inspect
-      
-      peer.send_msg(a_message)
-      
+      peer.send_msg(peer.create_interested())
       sleep(sleep_between)
-      
-      peer.recv_msg()
 
-      # start the loop
+      for i in (0 ... 20) do
 
-      #while true  do
-      #peer.recv_msg()
-      #end
+        a_message = peer.create_message()
+
+        puts "THIS IS THE MESSAGE : #{a_message.inspect}"
+
+        peer.send_msg(a_message)
+        sleep(sleep_between)
+        peer.recv_msg_debug()
+        sleep(sleep_between)
+      end
+
+      peer.socket.close
 
     else
       return
