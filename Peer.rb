@@ -3,7 +3,7 @@ require './Message.rb'
 
 class Peer
 
-  attr_accessor :string_ip, :byte_ip, :port, :info_hash, :connected, :bitfield, :socket
+  attr_accessor :string_ip, :byte_ip, :port, :info_hash, :connected, :bitfield, :socket, :peer_choking
   def initialize(meta_info_file, string_ip, port, byte_ip, peer_id)
 
     # keep_alive has an id of -1, it is treated specially for our implementation - it's length is zero
@@ -42,7 +42,7 @@ class Peer
     @am_choking = true
     @am_interested = true
 
-    @timeout_val = 20
+    @timeout_val = 40
 
     # not set here
     @last_recv_time
@@ -85,6 +85,12 @@ class Peer
 
       }
 
+      if @connected then
+        # puts "Handshake with peer : #{@string_ip} was successful."
+      else
+        # puts "Handshake with peer : #{@string_ip} was not successful."
+      end
+
     rescue
       # puts "could not connect to : " + @string_ip
       # $stdout.flush
@@ -114,11 +120,9 @@ class Peer
           Thread.exit
         end
 
-        # how many more bytes we are to recv
-        length += data.each_byte.to_a[0] * (2 ** 24)
-        length += data.each_byte.to_a[1] * (2 ** 16)
-        length += data.each_byte.to_a[2] * (2 ** 8)
-        length += data.each_byte.to_a[3]
+        length = data[0 ... 4].unpack("H*")[0].to_i(16)
+
+        puts "I am about to get #{length} bytes of data"
 
         additional_data = @socket.recv(length)
 
@@ -152,23 +156,23 @@ class Peer
         case message_id
 
         when @keep_alive_id
-          puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
+          #puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
 
         when @choke_id
           @peer_choking = true
-          puts "I got choke id"
+          #puts "I got choke id"
 
         when @unchoke_id
           @peer_choking = false
-          puts "I got unchoke_id"
+          #puts "I got unchoke_id"
 
         when @interested_id
           @peer_interested = true
-          puts "I got interested_id"
+          #puts "I got interested_id"
 
         when @not_interested_id
           @peer_interested = false
-          puts "I got not_interested_id"
+          #puts "I got not_interested_id"
 
         when @have_id
 
@@ -184,27 +188,27 @@ class Peer
           # Update corresponding bitIdx in bitfield
           @bitfield.set_bit(bitIdx, true)
 
-          puts "I got have_id: #{bitIdx}"
+          #puts "I got have_id: #{bitIdx}"
 
         when @bitfield_id
           #puts new_message.payload().each_byte.to_a.length
           @bitfield.set_bitfield_with_bitmap(new_message.payload())
-          puts "I got bitfield_id"
+          #puts "I got bitfield_id"
 
         when @request_id
-          puts "I got request_id"
+          #puts "I got request_id"
 
         when @piece_id
-          puts "I got piece_id"
-
+          #puts "I got piece_id"
+          puts "I got a piece from #{@string_ip}"
         when @cancel_id
-          puts "I got cancel_id"
+          #puts "I got cancel_id"
 
         when @port_id
-          puts "I got port_id"
+          #puts "I got port_id"
 
         else
-          puts "You gave me #{message_id} -- I have no idea what to do with that."
+          #puts "You gave me #{message_id} -- I have no idea what to do with that."
           $stdout.flush
           @meta_info_file.delete_from_good_peer(self)
           Thread.exit
@@ -217,17 +221,17 @@ class Peer
     rescue Timeout::Error => e
       #puts $!, $@
       #puts "Encountered a timeout error."
-      @meta_info_file.delete_from_good_peer(self)
-      Thread.exit
+      #@meta_info_file.delete_from_good_peer(self)
+     #Thread.exit
 
     rescue Errno::ECONNRESET => e
-      puts "Connection Reset by peer."
+      #puts "Connection Reset by peer."
       @meta_info_file.delete_from_good_peer(self)
       Thread.exit
 
     rescue # any other error
-      puts $!, $@
-      puts "Encountered a non-timeout error."
+      # puts $!, $@
+      #puts "Encountered a non-timeout error."
       @meta_info_file.delete_from_good_peer(self)
       Thread.exit
     end
@@ -262,10 +266,11 @@ class Peer
     begin
 
       msg = message.get_processed_message()
-      puts "Wrote #{@socket.write(msg)} bytes"
+      #puts "Wrote #{@socket.write(msg)} bytes"
+      @socket.write(msg)
     rescue
-      puts "Problem sending message. Probably a broken pipe."
-      puts $!, $@
+      #puts "Problem sending message. Probably a broken pipe."
+      #puts $!, $@
       @meta_info_file.delete_from_good_peer(self)
       Thread.exit
     end
@@ -366,7 +371,7 @@ class Peer
         length += data.each_byte.to_a[2] * (2 ** 8)
         length += data.each_byte.to_a[3]
 
-        puts "DEBUG : I am about to recv #{length} bytes of data"
+        # puts "DEBUG : I am about to recv #{length} bytes of data"
 
         additional_data = @socket.recv(length)
 
@@ -465,6 +470,7 @@ class Peer
     rescue Timeout::Error => e
       #puts $!, $@
       puts "Encountered a timeout error."
+      $stdout.flush
       #@meta_info_file.delete_from_good_peer(self)
       #Thread.exit
 

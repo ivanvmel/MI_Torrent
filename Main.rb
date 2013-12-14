@@ -20,10 +20,8 @@ torrents.each{|torrent|
 }
 
 meta_info_files.each{|meta_info_file|
-
   meta_info_file.spawn_peer_threads()
 }
-
 
 # wait for the meta_info_peers to finish
 meta_info_files.each{|meta_info_file|

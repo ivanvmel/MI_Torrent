@@ -27,7 +27,7 @@ class Metainfo
   @torrent_length
   def initialize(file_location)
 
-    @DEBUG = 1
+    @DEBUG = 0
     # five second timeout
     @timeout_val = 5
 
@@ -242,12 +242,29 @@ class Metainfo
 
   end
 
+  def listen_indefinitely(peer)
+
+    sleep_amount = 0.1
+    while true do
+
+      puts "i am listening"
+
+      peer.recv_msg()
+      sleep(sleep_amount)
+
+    end
+
+  end
+
   def run_algorithm(peer)
 
-    sleep_between = 0.5
+    sleep_between = 0.1
 
     # handshake
     peer.handshake()
+
+    # create listener threads
+    listener_thread = Thread.new(){listen_indefinitely(peer)}
 
     sleep(sleep_between)
 
@@ -255,35 +272,32 @@ class Metainfo
 
       # keep track of the good peers
 
-      add_to_good_peers(peer);
-
-      # receive any bitfields
-      peer.recv_msg()
-
-      peer.send_my_bitfield()
-
-      sleep(sleep_between)
-
-      peer.recv_msg()
-
-      sleep(sleep_between)
+      add_to_good_peers(peer)
 
       peer.send_msg(peer.create_interested())
+
       sleep(sleep_between)
 
       for i in (0 ... 20) do
 
+        puts "Good peers : #{@good_peers.length}"
+
         a_message = peer.create_message()
 
-        puts "THIS IS THE MESSAGE : #{a_message.inspect}"
+        if(peer.peer_choking == false) then
+          puts "I am sending a message"
+          peer.send_msg(a_message)
+        end
 
-        peer.send_msg(a_message)
-        sleep(sleep_between)
-        peer.recv_msg_debug()
-        sleep(sleep_between)
+        #sleep(sleep_between)
+        #peer.recv_msg()
+        #sleep(sleep_between)
+
       end
 
       peer.socket.close
+      # wait for the listener thread to finish
+      listener_thread.join
 
     else
       return
