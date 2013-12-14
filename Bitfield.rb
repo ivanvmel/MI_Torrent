@@ -10,7 +10,7 @@ class Bitfield
     end
 
     @byte_length = (@bitfield.length / 8.0).ceil
-    
+
   end
 
   # This method converts the data structure to the sendable bitmap

@@ -78,12 +78,7 @@ class Peer
         handshake = @socket.read 68
 
         if(handshake[28..47] != @info_hash) then
-          #puts "wrong info hash #{@meta_info_file.top_level_directory}"
-          $stdout.flush
           Thread.exit
-        else
-          #puts "correct info hash #{@meta_info_file.top_level_directory}"
-          $stdout.flush
         end
 
         @connected = true
@@ -101,7 +96,7 @@ class Peer
 
     def recv_msg()
 
-      debug = 1
+      debug = false
 
       begin
 
@@ -113,7 +108,7 @@ class Peer
 
           # make sure we actually got something
           if data == nil then
-            @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) };
+            @meta_info_file.delete_from_good_peer(self)
             Thread.exit
           end
 
@@ -125,17 +120,15 @@ class Peer
 
           additional_data = @socket.recv(length)
 
-          puts "ADVRTIZD LENGTH : #{Thread.current.object_id} #{length}"
-          puts "ADDITION LENGTH : #{Thread.current.object_id} #{additional_data.each_byte.to_a.length}"
+          #puts "ADVRTIZD LENGTH : #{Thread.current.object_id} #{length}"
+          #puts "ADDITION LENGTH : #{Thread.current.object_id} #{additional_data.each_byte.to_a.length}"
 
           $stdout.flush
 
           # if you are not sending as much data as you advertise, we drop you BOOM
           if(additional_data.each_byte.to_a.length != length) then
-
-            @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+            @meta_info_file.delete_from_good_peer(self)
             Thread.exit
-
           end
 
           if(debug) then
@@ -211,7 +204,7 @@ class Peer
           else
             puts "You gave me #{message_id} -- I have no idea what to do with that."
             $stdout.flush
-            @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+            @meta_info_file.delete_from_good_peer(self)
             Thread.exit
           end
 
@@ -222,18 +215,18 @@ class Peer
       rescue Timeout::Error => e
         # puts $!, $@
         puts "Encountered a timeout error."
-        @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+        @meta_info_file.delete_from_good_peer(self)
         Thread.exit
 
       rescue Errno::ECONNRESET => e
         puts "Connection Reset by peer."
-        @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+        @meta_info_file.delete_from_good_peer(self)
         Thread.exit
-        
+
       rescue # any other error
         #puts $!, $@
         puts "Encountered a non-timeout error."
-        @meta_info_file.good_peers.delete_if {|x| @meta_info_file.good_peers.include?(x) }
+        @meta_info_file.delete_from_good_peer(self)
         Thread.exit
       end
 
@@ -259,6 +252,56 @@ class Peer
     bitfield_message = "#{id}#{encoded_length}#{@meta_info_file.bitfield.struct_to_string}"
 
     @socket.write bitfield_message
+
+  end
+
+  def send_msg(message)
+
+    puts message.get_processed_message()
+
+    @socket.write message.get_processed_message()
+
+  end
+
+  def get_random_piece()
+
+    common_pieces_indices = Array.new
+    peer_bitfield = @bitfield.bitfield
+    our_bitfield = @meta_info_file.bitfield.bitfield
+
+    for i in (0 ... our_bitfield.length) do
+
+      if(peer_bitfield[i] == true && our_bitfield[i] == false) then common_pieces_indices.push(i) end
+
+    end
+
+    # we now know the indices of the pieces which the peer has but we do not
+    random_location = rand(0 ... common_pieces_indices.length)
+
+    if(random_location == nil)
+      return nil
+    else
+      return common_pieces_indices[random_location]
+    end
+
+  end
+
+  def create_message()
+
+    if(@peer_choking) then
+      # if the peer is choking us, we want to express our interest in her
+      return Message.new(@interested_id, 1, "")
+    else
+      # if the peer is not choking us, we want a piece of her
+      random_piece = get_random_piece()
+
+      if(random_piece != nil) then
+        return (Message.new(6, 13, random_piece))
+      else
+        return nil
+      end
+
+    end
 
   end
 

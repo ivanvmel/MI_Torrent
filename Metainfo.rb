@@ -2,6 +2,7 @@ require './bencode.rb'
 require 'digest/sha1'
 require './MI_File.rb'
 require 'timeout'
+require 'monitor'
 
 class Metainfo
 
@@ -47,6 +48,7 @@ class Metainfo
     @top_level_directory = dict["info"]["name"]
     @file_array = Array.new
     @bitfield = String.new
+    @lock = Monitor.new
 
     if(dict["info"].include?("files")) then
       @multi_file = true
@@ -107,6 +109,21 @@ class Metainfo
     @bitfield = Bitfield.new(@num_pieces)
 
     get_peers()
+
+  end
+
+  def add_to_good_peers(peer)
+    @lock.synchronize do
+      @good_peers.push(peer)
+    end
+  end
+
+  def delete_from_good_peer(peer)
+    @lock.synchronize do
+      if(@good_peers.include?(peer))
+        @good_peers.delete(peer)
+      end
+    end
 
   end
 
@@ -214,35 +231,34 @@ class Metainfo
   def run_algorithm(peer)
 
     sleep_between = 0.5
-    
+
     # handshake
     peer.handshake()
-    
+
     sleep(sleep_between)
 
     if peer.connected == true then
 
       # keep track of the good peers
-      @good_peers.push(peer)
+
+      add_to_good_peers(peer);
 
       # receive any bitfields
       peer.recv_msg()
-      
+
+      peer.send_my_bitfield()
+
       sleep(sleep_between)
 
-      #send my own bitfield
-      peer.send_my_bitfield()
-            
-      sleep(sleep_between)
-      
       peer.recv_msg()
-      
+
       sleep(sleep_between)
+
 
       # start the loop
 
       #while true  do
-        #peer.recv_msg()
+      #peer.recv_msg()
       #end
 
     else
