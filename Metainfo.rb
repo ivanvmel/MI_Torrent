@@ -8,7 +8,7 @@ class Metainfo
 
   attr_accessor :trackers, :info_hash, :piece_length, :pieces, :num_pieces,
   :name, :multi_file, :top_level_directory, :file_array, :peers, :good_peers,
-  :peer_threads, :bitfield
+  :peer_threads, :bitfield, :piece_length, :block_request_size, :torrent_length
 
   @trackers
   @info_hash
@@ -23,6 +23,8 @@ class Metainfo
   @good_peers
   @timeout_val
   @bitfield
+  @block_request_size
+  @torrent_length
   def initialize(file_location)
 
     @DEBUG = 1
@@ -49,6 +51,7 @@ class Metainfo
     @file_array = Array.new
     @bitfield = String.new
     @lock = Monitor.new
+    @block_request_size = 16384 # this is in bytes 2^14
 
     if(dict["info"].include?("files")) then
       @multi_file = true
@@ -83,7 +86,10 @@ class Metainfo
 
     end
 
-    #exit
+    @torrent_length = 0
+    # get the total torrent length
+    @file_array.each{|file| @torrent_length = @torrent_length + file.length}
+
     if dict["announce"] != nil and not dict["announce"].include?("udp") then
       @trackers.push(dict["announce"])
     end
@@ -106,7 +112,14 @@ class Metainfo
     end
 
     # initialize bitfield to empty
-    @bitfield = Bitfield.new(@num_pieces)
+    @bitfield = Bitfield.new(@num_pieces, self, false)
+
+    if(@DEBUG == 1) then
+      puts "The total number of pieces is : #{@num_pieces}"
+      puts "The piece length is           : #{@piece_length}"
+      puts "The block request size is     : #{@block_request_size}"
+      puts "The total torrent length is   : #{@torrent_length}"
+    end
 
     get_peers()
 
@@ -254,6 +267,15 @@ class Metainfo
 
       sleep(sleep_between)
 
+      a_message = peer.create_message()
+      
+      puts a_message.get_processed_message().each_byte.to_a[9].inspect
+      
+      peer.send_msg(a_message)
+      
+      sleep(sleep_between)
+      
+      peer.recv_msg()
 
       # start the loop
 

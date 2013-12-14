@@ -1,15 +1,64 @@
+require './Piece.rb'
+
 class Bitfield
-  attr_accessor :bitfield, :byte_length
+  attr_accessor :bitfield, :byte_length, :blockfield, :piece_field
 
   @bitfield
-  def initialize(length)
+  @byte_length
+  @meta_info_file
+  @piece_field
+  def initialize(length, meta_info_file, is_peer)
+
+    @meta_info_file = meta_info_file
 
     @bitfield = Array.new
+    @piece_field = Array.new
+
     for counter in 0...length
       @bitfield.push(false)
     end
 
+    if not is_peer then
+
+      for counter in 0 ... (length -  1)
+        @piece_field.push(Piece.new(@meta_info_file.block_request_size, @meta_info_file.piece_length))
+      end
+
+      # take care of the last piece
+      if not (@meta_info_file.torrent_length % @meta_info_file.piece_length == 0) then
+        @piece_field.push(Piece.new(@meta_info_file.block_request_size, @meta_info_file.torrent_length % @meta_info_file.piece_length))
+      else
+        # add a normal piece
+        @piece_field.push(Piece.new(@meta_info_file.block_request_size, @meta_info_file.piece_length))
+      end
+
+    else
+      @piece_field = nil
+    end
+
     @byte_length = (@bitfield.length / 8.0).ceil
+
+  end
+
+  def get_random_block(piece_index)
+
+    if(piece_index == nil) then return nil end
+
+    current_Piece = @piece_field[piece_index]
+    piece_block_field = current_Piece.block_field
+    missing_block_indices = Array.new
+
+    for i in (0 ... piece_block_field.length) do
+      if(piece_block_field[i] == false) then missing_block_indices.push(i) end
+    end
+
+    random_location = rand(0 ... missing_block_indices.length)
+
+    if not (random_location == nil) then
+      return missing_block_indices[random_location]
+    else
+      return nil
+    end
 
   end
 

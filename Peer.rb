@@ -33,7 +33,7 @@ class Peer
     @peer_id = peer_id
     @info_hash = meta_info_file.info_hash
     @handshake_info = "\x13BitTorrent protocol\x00\x00\x00\x00\x00\x00\x00\x00#{info_hash}#{peer_id}"
-    @bitfield = Bitfield.new(meta_info_file.num_pieces)
+    @bitfield = Bitfield.new(meta_info_file.num_pieces, meta_info_file, true)
 
     @connected = false
 
@@ -257,10 +257,13 @@ class Peer
 
   def send_msg(message)
 
-    puts message.get_processed_message()
+    #puts message.get_processed_message()
 
-    @socket.write message.get_processed_message()
-
+    begin
+      @socket.write(message.get_processed_message())
+    rescue
+      puts "OH FUCK , FAILING"
+    end
   end
 
   def get_random_piece()
@@ -292,11 +295,38 @@ class Peer
       # if the peer is choking us, we want to express our interest in her
       return Message.new(@interested_id, 1, "")
     else
+
       # if the peer is not choking us, we want a piece of her
       random_piece = get_random_piece()
 
       if(random_piece != nil) then
-        return (Message.new(6, 13, random_piece))
+
+        # we create the piece request payload right here
+
+        # process the random piece
+        random_piece_array = Array.new
+        random_piece_array.push(random_piece)
+        processed_random_piece = random_piece_array.pack("L>")
+        payload_index = processed_random_piece
+
+        # process the random block - this is the offset into the piece
+        random_block = @meta_info_file.bitfield.get_random_block(random_piece)
+        random_block = random_block * @meta_info_file.block_request_size
+        random_block_array = Array.new
+        random_block_array.push(random_block)
+        processed_random_block = random_block_array.pack("L>")
+        payload_begin = processed_random_block
+
+        # get the length of the block which we are requesting
+        block_length_array = Array.new
+        block_length_array.push(@meta_info_file.block_request_size)
+        processed_block_length = block_length_array.pack("L>")
+        payload_length = processed_block_length
+
+        payload = "#{payload_index}#{payload_begin}#{payload_length}"
+
+        return (Message.new(6, 13, payload))
+
       else
         return nil
       end
