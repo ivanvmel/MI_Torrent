@@ -129,7 +129,6 @@ class Metainfo
     end
 
     get_peers()
- 
 
   end
 
@@ -260,40 +259,25 @@ class Metainfo
 
   def spawn_peer_threads()
 
-    begin
-      interval = 15
+    puts "Starting to download #{@name}"
 
-      #while true do
+    @peer_threads = Array.new
 
-      puts "RESTARTING"
+    @peers.each{|peer|
 
-      @peer_threads = Array.new
-
-      @peers.each{|peer|
-
-        curr_thread = Thread.new(){
-          run_algorithm(peer)
-        }
-
-        # wait for each thread to finish
-        @peer_threads.push(curr_thread)
+      curr_thread = Thread.new(){
+        run_algorithm(peer)
       }
 
-      sleep(interval)
-
-      #@peer_threads.each{|peer| peer.exit}
-
-      #end
-
-    rescue
-      puts $!, $@
-    end
+      # wait for each thread to finish
+      @peer_threads.push(curr_thread)
+    }
 
   end
 
   def run_algorithm(peer)
 
-    sleep_between = 0.1
+    sleep_between = 0.05
 
     # handshake
     peer.handshake()
@@ -310,7 +294,7 @@ class Metainfo
 
       #sleep(sleep_between)
 
-      for i in (0 ... 1000) do
+      while true  do
 
         sleep(sleep_between)
 

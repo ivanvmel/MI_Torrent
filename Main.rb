@@ -8,39 +8,10 @@ require 'fileutils'
 require './Bitfield'
 require 'fileutils'
 
-=begin
-filename = "newFile.txt"
-
-if (File.exists?(filename)) then
-  puts "file exists.  Overwriting."
-  File.unlink(filename)
-else
-  puts "file does NOT exist!  Creating new file..."
-end
-
-
-# FileUtils.touch(filename)
-file = File.open(filename, "w")
-file.write("i am line three\n")
-file.write("i am line four\n")
-file.close
-exit
-
-=end
-
-=begin
-FileUtils.mkdir "dir1"
-file = File.open("dir1/filename.txt", "w")
-exit
-=end
-
-# this is the most recent file
-
 meta_info_files = Array.new
 
 # we take a comma separated list of trackers
-torrents = ["torrent_2mb.dat.torrent"]
-# torrents = ["ubuntu_recent.torrent"]
+torrents = ["ubuntu_recent.torrent"]
 
 # for each tracker, get an associated meta-info file.
 torrents.each{|torrent|
@@ -67,6 +38,7 @@ meta_info_files.each{|meta_info_file|
 
   meta_info_file.spawn_peer_threads()
 }
+
 
 # wait for the meta_info_peers to finish
 meta_info_files.each{|meta_info_file|

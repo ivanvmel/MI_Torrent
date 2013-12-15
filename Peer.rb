@@ -42,7 +42,7 @@ class Peer
     @am_choking = true
     @am_interested = true
 
-    @timeout_val = 1
+    @timeout_val = 10
 
     # not set here
     @last_recv_time
@@ -125,8 +125,17 @@ class Peer
         #puts "I am about to get #{length} bytes of data"
 
         additional_data = ""
-        while (additional_data.length != length) do
-          additional_data.concat(@socket.recv(length))
+
+        puts "Length :#{length}"
+        $stdout.flush
+
+        begin
+          while (additional_data.length != length) do
+            additional_data.concat(@socket.recv(length))
+          end
+        rescue
+          message_id = 999
+          #puts "Hit the integer snag"
         end
 
         #puts "ADVRTIZD LENGTH : #{Thread.current.object_id} #{length}"
@@ -145,7 +154,7 @@ class Peer
           puts "length of data recv'd      : #{additional_data.each_byte.to_a.length}"
         end
 
-        if(length != 0) then
+        if(length != 0 && message_id != 999) then
           message_id = additional_data.each_byte.to_a[0]
         else
           message_id = -1
@@ -205,7 +214,7 @@ class Peer
         when @piece_id
 
           #puts "I got piece_id"
-          puts "I got a piece from #{@string_ip}"
+          #puts "I got a piece from #{@string_ip}"
 
           payload =  new_message.payload
 
@@ -225,9 +234,9 @@ class Peer
 
           # puts "given block index: #{block_idx}"
 
-          puts "Index     : #{index}"
-          puts "Byte begin: #{byte_begin}"
-          
+          #puts "Index     : #{index}"
+          #puts "Byte begin: #{byte_begin}"
+
           prev_piece_status = @meta_info_file.bitfield.bitfield[index]
           @meta_info_file.set_bitfield(index, byte_begin)
           cur_piece_status = @meta_info_file.bitfield.bitfield[index]
@@ -235,28 +244,26 @@ class Peer
           # Store block_data in memory.
           @meta_info_file.bitfield.piece_field[index].block_field_data[block_idx] = block_data
 
-          if( prev_piece_status == false && cur_piece_status == true) then
+          if(prev_piece_status == false && cur_piece_status == true) then
             #write piece to disk
             puts "PIECE DONE!!!!  Writing to disk...."
-            
+
             if (@meta_info_file.multi_file == true) then
               puts "in Peer.recv_msg, dont know how to write out piece for multifile.  Exiting..."
               exit
             else
               @meta_info_file.bitfield.piece_field[index].block_field_data.each{|block|
-              @meta_info_file.file_array[0].fd.write(block)
-              @meta_info_file.file_array[0].fd.flush
-              
+                @meta_info_file.file_array[0].fd.write(block)
+                @meta_info_file.file_array[0].fd.flush
+
               }
               # @meta_info_file.file_array[0].fd.close
               # exit
 
             end
 
-
             #remove piece from memory
           end
-          
 
           $stdout.flush
 
@@ -288,7 +295,7 @@ class Peer
       #@meta_info_file.delete_from_good_peer(self)
       #Thread.exit
 
-  #  rescue # any other error
+      #  rescue # any other error
       # puts $!, $@
       #puts "Encountered a non-timeout error."
       # @meta_info_file.delete_from_good_peer(self)

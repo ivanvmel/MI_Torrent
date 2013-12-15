@@ -20,9 +20,5 @@ class MI_File
 
   end
 
-  def name()
-
-  end
-
   # class ends here
 end
