@@ -12,7 +12,7 @@ class MI_File
       puts "PATH #{path}"
       puts "LEGNTH #{length}"
     end
-    
+
     @length = length
     @path = path
 

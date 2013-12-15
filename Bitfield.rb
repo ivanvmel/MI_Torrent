@@ -132,6 +132,31 @@ class Bitfield
     return output
   end
 
+  def check_if_full(n)
+
+    block_field_n = @piece_field[n].block_field
+
+    full = true
+
+    for i in (0 ... block_field_n.length) do
+      if(block_field_n[i] == false) then
+        full = false
+        break
+      end
+    end
+
+    return full
+
+  end
+
+  def set_piece_and_block(piece, byte)
+
+    # NOTE, NOT TAKING CARE OF REINEER BLOCKS
+
+    @piece_field[piece].block_field[(byte / @meta_info_file.block_request_size)] = true
+
+  end
+
   def set_bit(n, t_or_f)
 
     if(n < 0 || n >= @bitfield.length) then

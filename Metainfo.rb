@@ -8,7 +8,7 @@ class Metainfo
 
   attr_accessor :trackers, :info_hash, :piece_length, :pieces, :num_pieces,
   :name, :multi_file, :top_level_directory, :file_array, :peers, :good_peers,
-  :peer_threads, :bitfield, :piece_length, :block_request_size, :torrent_length
+  :peer_threads, :bitfield, :piece_length, :block_request_size, :torrent_length, :current_piece
 
   @trackers
   @info_hash
@@ -26,6 +26,9 @@ class Metainfo
   @block_request_size
   @torrent_length
   def initialize(file_location)
+
+    # FOR DEBUGGING, TEMPORARY
+    @current_piece = 0
 
     @DEBUG = 0
     # five second timeout
@@ -53,6 +56,7 @@ class Metainfo
     @bitfield = String.new
     @lock = Monitor.new
     @block_request_size = 16384 # this is in bytes 2^14
+    #@block_request_size = 32768
 
     if(dict["info"].include?("files")) then
       @multi_file = true
@@ -80,7 +84,7 @@ class Metainfo
 
     }
 
-    if @DEBUG == 0 then
+    if @DEBUG == 1 then
 
       puts "Piece Length #{@piece_length}"
       puts (dict["info"]["pieces"].length / 20)
@@ -132,13 +136,30 @@ class Metainfo
     end
   end
 
+  def increment_piece()
+    @lock.synchronize do
+      @current_piece = @current_piece + 1
+    end
+  end
+
   def delete_from_good_peer(peer)
     @lock.synchronize do
       if(@good_peers.include?(peer))
         @good_peers.delete(peer)
       end
     end
+  end
 
+  def set_bitfield(piece, byte)
+    @lock.synchronize do
+
+      @bitfield.set_piece_and_block(piece, byte)
+
+      if(@bitfield.check_if_full(piece)) then
+        @bitfield.set_bit(piece, true)
+      end
+
+    end
   end
 
   def get_peers()
@@ -155,7 +176,7 @@ class Metainfo
 
       # fill out the parameter hash
       params["info_hash"] = @info_hash
-      params["numwant"] = 50
+      params["numwant"] = 200
       params["peer_id"] = @peer_id
       params["compact"] = 1
       params["left"] = 1
@@ -228,43 +249,43 @@ class Metainfo
 
   def spawn_peer_threads()
 
-    @peer_threads = Array.new
+    begin
+      interval = 15
 
-    @peers.each{|peer|
+      #while true do
 
-      curr_thread = Thread.new(){
-        run_algorithm(peer)
+      puts "RESTARTING"
+
+      @peer_threads = Array.new
+
+      @peers.each{|peer|
+
+        curr_thread = Thread.new(){
+          run_algorithm(peer)
+        }
+
+        # wait for each thread to finish
+        @peer_threads.push(curr_thread)
       }
 
-      # wait for each thread to finish
-      @peer_threads.push(curr_thread)
-    }
+      sleep(interval)
 
-  end
+      #@peer_threads.each{|peer| peer.exit}
 
-  def listen_indefinitely(peer)
+      #end
 
-    sleep_amount = 0.1
-    while true do
-
-      puts "i am listening"
-
-      peer.recv_msg()
-      sleep(sleep_amount)
-
+    rescue
+      puts $!, $@
     end
 
   end
 
   def run_algorithm(peer)
 
-    sleep_between = 0.1
+    sleep_between = 0.2
 
     # handshake
     peer.handshake()
-
-    # create listener threads
-    listener_thread = Thread.new(){listen_indefinitely(peer)}
 
     sleep(sleep_between)
 
@@ -276,28 +297,29 @@ class Metainfo
 
       peer.send_msg(peer.create_interested())
 
-      sleep(sleep_between)
+      #sleep(sleep_between)
 
-      for i in (0 ... 20) do
+      for i in (0 ... 1000) do
 
-        puts "Good peers : #{@good_peers.length}"
+        sleep(sleep_between)
+
+        #puts "Good peers : #{@good_peers.length}"
 
         a_message = peer.create_message()
 
         if(peer.peer_choking == false) then
-          puts "I am sending a message"
           peer.send_msg(a_message)
         end
 
-        #sleep(sleep_between)
-        #peer.recv_msg()
+        sleep(sleep_between)
+        peer.recv_msg()
         #sleep(sleep_between)
 
       end
 
       peer.socket.close
       # wait for the listener thread to finish
-      listener_thread.join
+      #listener_thread.join
 
     else
       return

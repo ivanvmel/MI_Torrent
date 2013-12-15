@@ -1,7 +1,6 @@
 class Piece
 
   attr_accessor :block_field, :leftovers, :num_blocks
-  
   def initialize(block_size, piece_size)
 
     @block_field = Array.new

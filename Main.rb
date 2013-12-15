@@ -12,7 +12,8 @@ require './Bitfield'
 meta_info_files = Array.new
 
 # we take a comma separated list of trackers
-torrents = ["ubuntu_recent.torrent"]
+torrents = ["torrent_2mb.dat.torrent"]
+#torrents = ["ubuntu_recent.torrent"]
 
 # for each tracker, get an associated meta-info file
 torrents.each{|torrent|

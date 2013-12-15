@@ -42,7 +42,7 @@ class Peer
     @am_choking = true
     @am_interested = true
 
-    @timeout_val = 40
+    @timeout_val = 1
 
     # not set here
     @last_recv_time
@@ -78,7 +78,7 @@ class Peer
         handshake = @socket.read 68
 
         if(handshake[28..47] != @info_hash) then
-          Thread.exit
+          #Thread.exit
         end
 
         @connected = true
@@ -116,15 +116,18 @@ class Peer
 
         # make sure we actually got something
         if data == nil then
-          @meta_info_file.delete_from_good_peer(self)
-          Thread.exit
+          #@meta_info_file.delete_from_good_peer(self)
+          #Thread.exit
         end
 
         length = data[0 ... 4].unpack("H*")[0].to_i(16)
 
-        puts "I am about to get #{length} bytes of data"
+        #puts "I am about to get #{length} bytes of data"
 
-        additional_data = @socket.recv(length)
+        additional_data = ""
+        while (additional_data.length != length) do
+          additional_data.concat(@socket.recv(length))
+        end
 
         #puts "ADVRTIZD LENGTH : #{Thread.current.object_id} #{length}"
         #puts "ADDITION LENGTH : #{Thread.current.object_id} #{additional_data.each_byte.to_a.length}"
@@ -133,8 +136,8 @@ class Peer
 
         # if you are not sending as much data as you advertise, we drop you BOOM
         if(additional_data.each_byte.to_a.length != length) then
-          @meta_info_file.delete_from_good_peer(self)
-          Thread.exit
+          #@meta_info_file.delete_from_good_peer(self)
+          #Thread.exit
         end
 
         if(debug) then
@@ -156,23 +159,24 @@ class Peer
         case message_id
 
         when @keep_alive_id
-          #puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
+          puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
 
         when @choke_id
           @peer_choking = true
-          #puts "I got choke id"
+          puts "I got choke id"
 
         when @unchoke_id
+          puts "i am unchoking"
           @peer_choking = false
           #puts "I got unchoke_id"
 
         when @interested_id
           @peer_interested = true
-          #puts "I got interested_id"
+          puts "I got interested_id"
 
         when @not_interested_id
           @peer_interested = false
-          #puts "I got not_interested_id"
+          puts "I got not_interested_id"
 
         when @have_id
 
@@ -193,25 +197,48 @@ class Peer
         when @bitfield_id
           #puts new_message.payload().each_byte.to_a.length
           @bitfield.set_bitfield_with_bitmap(new_message.payload())
-          #puts "I got bitfield_id"
+          puts "I got bitfield_id"
 
         when @request_id
-          #puts "I got request_id"
+          puts "I got request_id"
 
         when @piece_id
+
           #puts "I got piece_id"
           puts "I got a piece from #{@string_ip}"
+
+          payload =  new_message.payload
+
+          # 4 bytes = length
+          # 1 byte = id
+          # ---------------
+          # index = 4 bytes
+          # begin = 4 bytes
+
+          index = payload[0 ... 4]
+          byte_begin = payload[4 ... 8]
+
+          index = index.unpack("L>")[0]
+          byte_begin = byte_begin.unpack("L>")[0]
+
+          puts "Index     : #{index}"
+          puts "Byte begin: #{byte_begin}"
+
+          @meta_info_file.set_bitfield(index, byte_begin)
+
+          $stdout.flush
+
         when @cancel_id
-          #puts "I got cancel_id"
+          puts "I got cancel_id"
 
         when @port_id
-          #puts "I got port_id"
+          puts "I got port_id"
 
         else
-          #puts "You gave me #{message_id} -- I have no idea what to do with that."
+          puts "You gave me #{message_id} -- I have no idea what to do with that."
           $stdout.flush
-          @meta_info_file.delete_from_good_peer(self)
-          Thread.exit
+          #@meta_info_file.delete_from_good_peer(self)
+          #Thread.exit
         end
 
         $stdout.flush
@@ -222,18 +249,18 @@ class Peer
       #puts $!, $@
       #puts "Encountered a timeout error."
       #@meta_info_file.delete_from_good_peer(self)
-     #Thread.exit
+      #Thread.exit
 
     rescue Errno::ECONNRESET => e
       #puts "Connection Reset by peer."
-      @meta_info_file.delete_from_good_peer(self)
-      Thread.exit
+      #@meta_info_file.delete_from_good_peer(self)
+      #Thread.exit
 
     rescue # any other error
       # puts $!, $@
       #puts "Encountered a non-timeout error."
-      @meta_info_file.delete_from_good_peer(self)
-      Thread.exit
+      #@meta_info_file.delete_from_good_peer(self)
+      #Thread.exit
     end
 
   end
@@ -261,18 +288,22 @@ class Peer
 
   def send_msg(message)
 
+    #puts "I am inside of send_message"
     #puts message.get_processed_message()
 
     begin
 
       msg = message.get_processed_message()
+      #puts msg.inspect
+
       #puts "Wrote #{@socket.write(msg)} bytes"
       @socket.write(msg)
+
     rescue
       #puts "Problem sending message. Probably a broken pipe."
       #puts $!, $@
-      @meta_info_file.delete_from_good_peer(self)
-      Thread.exit
+      #@meta_info_file.delete_from_good_peer(self)
+      #Thread.exit
     end
   end
 
@@ -309,6 +340,14 @@ class Peer
       # if the peer is not choking us, we want a piece of her
       random_piece = get_random_piece()
 
+      curr_piece = @meta_info_file.current_piece
+
+      #if(@meta_info_file.bitfield.bitfield[curr_piece] == true) then
+      #@meta_info_file.increment_piece()
+      #end
+
+      random_piece = curr_piece
+
       if(random_piece != nil) then
 
         # we create the piece request payload right here
@@ -321,6 +360,9 @@ class Peer
 
         # process the random block - this is the offset into the piece
         random_block = @meta_info_file.bitfield.get_random_block(random_piece)
+
+        if(random_block == nil) then @meta_info_file.increment_piece(); return self.create_message() end
+
         random_block = random_block * @meta_info_file.block_request_size
         random_block_array = Array.new
         random_block_array.push(random_block)
@@ -341,149 +383,6 @@ class Peer
         return nil
       end
 
-    end
-
-  end
-
-  # Class ends here - our waky reineer functions go here
-
-  def recv_msg_debug()
-
-    debug = false
-
-    begin
-
-      Timeout::timeout(@timeout_val){
-
-        length = 0
-        id = 0
-        data = @socket.recv(4)
-
-        # make sure we actually got something
-        if data == nil then
-          @meta_info_file.delete_from_good_peer(self)
-          Thread.exit
-        end
-
-        # how many more bytes we are to recv
-        length += data.each_byte.to_a[0] * (2 ** 24)
-        length += data.each_byte.to_a[1] * (2 ** 16)
-        length += data.each_byte.to_a[2] * (2 ** 8)
-        length += data.each_byte.to_a[3]
-
-        # puts "DEBUG : I am about to recv #{length} bytes of data"
-
-        additional_data = @socket.recv(length)
-
-        #puts "ADVRTIZD LENGTH : #{Thread.current.object_id} #{length}"
-        #puts "ADDITION LENGTH : #{Thread.current.object_id} #{additional_data.each_byte.to_a.length}"
-
-        $stdout.flush
-
-        # if you are not sending as much data as you advertise, we drop you BOOM
-        if(additional_data.each_byte.to_a.length != length) then
-          @meta_info_file.delete_from_good_peer(self)
-          Thread.exit
-        end
-
-        if(debug) then
-          puts "length of data to be recvd : #{length}"
-          puts "length of data recv'd      : #{additional_data.each_byte.to_a.length}"
-        end
-
-        if(length != 0) then
-          message_id = additional_data.each_byte.to_a[0]
-        else
-          message_id = -1
-        end
-
-        new_message = Message.new(message_id, length, additional_data[1...additional_data.length])
-
-        # update recv time
-        @last_recv_time = Time.new
-
-        case message_id
-
-        when @keep_alive_id
-          puts "DEBUG : I got a KEEP-ALIVE id, code doesn't do anything about this yet"
-
-        when @choke_id
-          @peer_choking = true
-          puts "I got choke id"
-
-        when @unchoke_id
-          @peer_choking = false
-          puts "DEBUG : I got unchoke_id"
-
-        when @interested_id
-          @peer_interested = true
-          puts "I got interested_id"
-
-        when @not_interested_id
-          @peer_interested = false
-          puts "I got not_interested_id"
-
-        when @have_id
-
-          # update bitfield
-
-          # Parse out numberic bitIdx
-          bitIdx = 0
-          bitIdx += new_message.payload().each_byte.to_a[0] * (2 ** 24)
-          bitIdx += new_message.payload().each_byte.to_a[1] * (2 ** 16)
-          bitIdx += new_message.payload().each_byte.to_a[2] * (2 ** 8)
-          bitIdx += new_message.payload().each_byte.to_a[3]
-
-          # Update corresponding bitIdx in bitfield
-          @bitfield.set_bit(bitIdx, true)
-
-          puts "DEBUG : I got have_id: #{bitIdx}"
-
-        when @bitfield_id
-          #puts new_message.payload().each_byte.to_a.length
-          @bitfield.set_bitfield_with_bitmap(new_message.payload())
-          puts "I got bitfield_id"
-
-        when @request_id
-          puts "I got request_id"
-
-        when @piece_id
-          puts "I got piece_id"
-
-        when @cancel_id
-          puts "I got cancel_id"
-
-        when @port_id
-          puts "I got port_id"
-
-        else
-          puts "You gave me #{message_id} -- I have no idea what to do with that."
-          $stdout.flush
-          @meta_info_file.delete_from_good_peer(self)
-          Thread.exit
-        end
-
-        $stdout.flush
-
-      }
-
-    rescue Timeout::Error => e
-      #puts $!, $@
-      puts "Encountered a timeout error."
-      $stdout.flush
-      #@meta_info_file.delete_from_good_peer(self)
-      #Thread.exit
-
-    rescue Errno::ECONNRESET => e
-      puts "Connection Reset by peer."
-      @meta_info_file.delete_from_good_peer(self)
-      Thread.exit
-
-    rescue # any other error
-      #puts $!, $@
-      puts "Encountered a non-timeout error."
-      @meta_info_file.delete_from_good_peer(self)
-      Thread.exit
     end
 
   end
