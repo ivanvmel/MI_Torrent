@@ -187,6 +187,8 @@ class Metainfo
 
           puts "I Got a message ID #{message_id}"
 
+          puts send_my_bitfield().each_byte.to_a.inspect
+
           case message_id
 
           when @keep_alive_id
@@ -429,20 +431,23 @@ class Metainfo
 
   def send_my_bitfield()
 
-    # I NEED A TRY - CATCH
+    begin
+      # the + 1 is for the id
+      bitfield_length = @bitfield.byte_length() + 1
+      id = "\x05";
 
-    # the + 1 is for the id
-    bitfield_length = @bitfield.bitfield.byte_length + 1
-    id = "\x05";
+      # this is used for packing
+      temp = Array.new
+      temp.push(bitfield_length)
 
-    # this is used for packing
-    temp = Array.new
-    temp.push(bitfield_length)
+      # the > specifies the endian-ness
+      encoded_length = temp.pack("L>")
 
-    # the > specifies the endian-ness
-    encoded_length = temp.pack("L>")
+      bitfield_message = "#{encoded_length}#{id}#{@bitfield.struct_to_string}"
 
-    bitfield_message = "#{id}#{encoded_length}#{@bitfield.bitfield.struct_to_string}"
+    rescue
+      puts $!, $@
+    end
 
     return bitfield_message
 
