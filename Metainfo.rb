@@ -28,8 +28,26 @@ class Metainfo
   @file_buffer
   def initialize(file_location)
 
+    # keep_alive has an id of -1, it is treated specially for our implementation - it's length is zero
+    @keep_alive_id = -1
+
+    # these do not have a payload
+    @choke_id = 0
+    @unchoke_id = 1
+    @interested_id = 2
+    @not_interested_id = 3
+
+    # these have a payload
+    @have_id = 4
+    @bitfield_id = 5
+    @request_id = 6
+    @piece_id = 7
+    @cancel_id = 8
+    @port_id = 9
+
     # FOR DEBUGGING, TEMPORARY
     @current_piece = 0
+    @seed_port = 51115
 
     @DEBUG = 0
     # five second timeout
@@ -129,6 +147,88 @@ class Metainfo
     end
 
     get_peers()
+
+  end
+
+  def seed()
+
+    seed_sleep_amount = 0.5
+
+    seed_thread = Thread.new(){
+      server = TCPServer.new @seed_port # Server bind to port 2000
+      loop do
+
+        client = server.accept    # Wait for a client to connect
+
+        # recv the handshake
+        message = client.recv 68
+
+        message = message[0...68]
+
+        # send out our handshake
+        client.write message
+
+        # start our recv loop
+
+        while true do
+
+          data = client.recv 4
+
+          length = data[0 ... 4].unpack("H*")[0].to_i(16)
+
+          puts "I am about to recv #{length} bytes of data."
+
+          additional_data = ""
+          while (additional_data.length != length) do
+            additional_data.concat(client.recv(length))
+          end
+
+          message_id = additional_data.each_byte.to_a[0]
+
+          puts "I Got a message ID #{message_id}"
+
+          case message_id
+
+          when @keep_alive_id
+
+          when @choke_id
+
+          when @unchoke_id
+
+          when @interested_id
+            @peer_interested = true
+            # SEND AN UNCHOKE
+
+          when @not_interested_id
+
+          when @have_id
+
+          when @bitfield_id
+
+          when @request_id
+
+            # We're going to be getting a lot of these
+
+          when @piece_id
+
+          when @cancel_id
+
+          when @port_id
+
+          else
+            puts "You gave me #{message_id} -- I have no idea what to do with that."
+            $stdout.flush
+
+          end
+
+          sleep(seed_sleep_amount)
+
+        end
+
+      end
+    }
+
+    return seed_thread
 
   end
 
@@ -248,6 +348,11 @@ class Metainfo
 
     }
 
+    # THIS IS WHERE WE HARDCODE OURSELVES AS A PEER
+    our_ip = "127.0.0.1"
+    our_port = @seed_port
+    peers.push(Peer.new(self, our_ip, our_port,nil,@peer_id))
+
     if(peers.size() == 0) then
       puts "We have no peers to talk to. Cannot proceed. Exiting."
       exit
@@ -319,6 +424,27 @@ class Metainfo
     else
       return
     end
+
+  end
+
+  def send_my_bitfield()
+
+    # I NEED A TRY - CATCH
+
+    # the + 1 is for the id
+    bitfield_length = @bitfield.bitfield.byte_length + 1
+    id = "\x05";
+
+    # this is used for packing
+    temp = Array.new
+    temp.push(bitfield_length)
+
+    # the > specifies the endian-ness
+    encoded_length = temp.pack("L>")
+
+    bitfield_message = "#{id}#{encoded_length}#{@bitfield.bitfield.struct_to_string}"
+
+    return bitfield_message
 
   end
 

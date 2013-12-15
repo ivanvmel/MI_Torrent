@@ -10,17 +10,24 @@ require 'fileutils'
 
 meta_info_files = Array.new
 
+seed_thread = nil
+
 # we take a comma separated list of trackers
-torrents = ["ubuntu_recent.torrent"]
+torrents = ["torrent_2mb.dat.torrent"]
 
 # for each tracker, get an associated meta-info file.
 torrents.each{|torrent|
   meta_info_files.push(Metainfo.new(torrent))
 }
 
-
 meta_info_files.each{|meta_info_file|
 
+  # THIS IS WHERE WE START SEEDING - the reason this works is because this only one meta-info file
+  seed_thread = meta_info_file.seed()
+
+  # THIS LITTLE BIT OF TIME IS FOR THE SERVER FIRING UP
+  sleep(1)
+  
   # make top level directory, if necessary.
   if (meta_info_file.multi_file == true) then
     FileUtils.mkdir(meta_info_file.top_level_directory)
@@ -32,13 +39,12 @@ meta_info_files.each{|meta_info_file|
     puts "exiting..."
     exit
   else
-    meta_info_file.file_array[0].fd = 
-      File.open(meta_info_file.file_array[0].path, "w")
+    meta_info_file.file_array[0].fd =
+    File.open(meta_info_file.file_array[0].path, "w")
   end
 
   meta_info_file.spawn_peer_threads()
 }
-
 
 # wait for the meta_info_peers to finish
 meta_info_files.each{|meta_info_file|
@@ -51,7 +57,7 @@ meta_info_files.each{|meta_info_file|
 
 # clean up
 meta_info_files.each{ |meta_info_file|
-    if (meta_info_file.multi_file == true) then
+  if (meta_info_file.multi_file == true) then
     puts "Path has to be interpreted as dictionary for multi-file, cant close"
     puts "exiting..."
     exit
@@ -60,4 +66,4 @@ meta_info_files.each{ |meta_info_file|
   end
 }
 
-
+seed_thread.join

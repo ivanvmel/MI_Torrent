@@ -42,7 +42,7 @@ class Peer
     @am_choking = true
     @am_interested = true
 
-    @timeout_val = 10
+    @timeout_val = 50
 
     # not set here
     @last_recv_time
@@ -68,11 +68,14 @@ class Peer
 
   def handshake()
 
+    puts "I AM SENDING A HANDSHAKE TO IP #{@string_ip} at port #{@port}"
+
     begin
 
       Timeout::timeout(@timeout_val){
 
         @socket = TCPSocket.new(@string_ip, @port)
+
         @socket.write @handshake_info
 
         handshake = @socket.read 68
@@ -86,14 +89,15 @@ class Peer
       }
 
       if @connected then
-        # puts "Handshake with peer : #{@string_ip} was successful."
+        puts "Handshake with peer : #{@string_ip} was successful."
       else
         # puts "Handshake with peer : #{@string_ip} was not successful."
       end
 
     rescue
-      # puts "could not connect to : " + @string_ip
-      # $stdout.flush
+      puts $!, $@
+      puts "could not connect to : " + @string_ip
+      $stdout.flush
     end
 
   end
@@ -126,8 +130,8 @@ class Peer
 
         additional_data = ""
 
-        puts "Length :#{length}"
-        $stdout.flush
+        #puts "Length :#{length}"
+        #$stdout.flush
 
         begin
           while (additional_data.length != length) do
@@ -168,14 +172,14 @@ class Peer
         case message_id
 
         when @keep_alive_id
-          puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
+          #puts "I got a KEEP-ALIVE id, code doesn't do anything about this yet"
 
         when @choke_id
           @peer_choking = true
-          puts "I got choke id"
+          #puts "I got choke id"
 
         when @unchoke_id
-          puts "i am unchoking"
+          #puts "i am unchoking"
           @peer_choking = false
           #puts "I got unchoke_id"
 
@@ -206,10 +210,10 @@ class Peer
         when @bitfield_id
           #puts new_message.payload().each_byte.to_a.length
           @bitfield.set_bitfield_with_bitmap(new_message.payload())
-          puts "I got bitfield_id"
+          #puts "I got bitfield_id"
 
         when @request_id
-          puts "I got request_id"
+          # puts "I got request_id"
 
         when @piece_id
 
@@ -246,7 +250,7 @@ class Peer
 
           if(prev_piece_status == false && cur_piece_status == true) then
             #write piece to disk
-            puts "PIECE DONE!!!!  Writing to disk...."
+            puts "Writing piece #{index} to disk, the torrent is #{(((index.to_f / @meta_info_file.num_pieces).to_f)*100).round(2)} % complete. (#{(index * @meta_info_file.piece_length) / 1024} kb downloaded)"
 
             if (@meta_info_file.multi_file == true) then
               puts "in Peer.recv_msg, dont know how to write out piece for multifile.  Exiting..."
