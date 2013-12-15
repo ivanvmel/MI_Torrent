@@ -42,7 +42,7 @@ class Peer
     @am_choking = true
     @am_interested = true
 
-    @timeout_val = 50
+    @timeout_val = 10
 
     # not set here
     @last_recv_time
@@ -179,6 +179,7 @@ class Peer
           #puts "I got choke id"
 
         when @unchoke_id
+          puts "CLIENT : I got unchoked"
           #puts "i am unchoking"
           @peer_choking = false
           #puts "I got unchoke_id"
@@ -208,6 +209,10 @@ class Peer
           #puts "I got have_id: #{bitIdx}"
 
         when @bitfield_id
+
+          puts "CLIENT: I GOT A BITFIELD"
+          puts new_message.payload().inspect
+
           #puts new_message.payload().each_byte.to_a.length
           @bitfield.set_bitfield_with_bitmap(new_message.payload())
           #puts "I got bitfield_id"
@@ -331,8 +336,8 @@ class Peer
 
   def send_msg(message)
 
-    #puts "I am inside of send_message"
-    #puts message.get_processed_message()
+    puts "I am inside of send_message"
+    puts message.get_processed_message().inspect
 
     begin
 

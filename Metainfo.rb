@@ -168,6 +168,17 @@ class Metainfo
         # send out our handshake
         client.write message
 
+        begin
+          # send your bitfield
+          puts "MY VERY OWN BITFIELD : #{send_my_bitfield().inspect}"
+          client.write send_my_bitfield()
+          sleep(seed_sleep_amount)
+          # unchoke the peer
+          client.write create_unchoke().get_processed_message
+        rescue
+          puts $!, $@
+        end
+
         # start our recv loop
 
         while true do
@@ -186,8 +197,7 @@ class Metainfo
           message_id = additional_data.each_byte.to_a[0]
 
           puts "I Got a message ID #{message_id}"
-
-          puts send_my_bitfield().each_byte.to_a.inspect
+          puts "This is the data : #{additional_data.each_byte.to_a.inspect}"
 
           case message_id
 
@@ -198,8 +208,9 @@ class Metainfo
           when @unchoke_id
 
           when @interested_id
+
             @peer_interested = true
-            # SEND AN UNCHOKE
+            client.write(create_unchoke().get_processed_message)
 
           when @not_interested_id
 
@@ -209,7 +220,7 @@ class Metainfo
 
           when @request_id
 
-            # We're going to be getting a lot of these
+            puts "SEEDER : I GOT A REQUEST FROM THE CLIENT FOR A PIECE"
 
           when @piece_id
 
@@ -226,7 +237,6 @@ class Metainfo
           sleep(seed_sleep_amount)
 
         end
-
       end
     }
 
@@ -451,6 +461,16 @@ class Metainfo
 
     return bitfield_message
 
+  end
+
+  def create_unchoke()
+
+    return Message.new(@unchoke_id, 1, "")
+
+  end
+
+  def create_piece(index, byte, block)
+    #piece: <len=0009+X><id=7><index><begin><block>
   end
 
   # class ends here
