@@ -48,7 +48,7 @@ class Metainfo
     @num_pieces = (dict["info"]["pieces"].length / 20)
     @piece_hashes = Array.new
     @peer_id = "MI000167890123456789"
-    #@peer_id =  "-AZ2060-123495832949"
+    # @peer_id =  "-AZ2060-123495832949"
     @good_peers = Array.new
 
     @top_level_directory = dict["info"]["name"]
@@ -56,7 +56,7 @@ class Metainfo
     @bitfield = String.new
     @lock = Monitor.new
     @block_request_size = 16384 # this is in bytes 2^14
-    #@block_request_size = 32768
+    # @block_request_size = 32768
 
     if(dict["info"].include?("files")) then
       @multi_file = true
@@ -127,6 +127,7 @@ class Metainfo
     end
 
     get_peers()
+ 
 
   end
 

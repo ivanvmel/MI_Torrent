@@ -217,14 +217,46 @@ class Peer
 
           index = payload[0 ... 4]
           byte_begin = payload[4 ... 8]
+          block_data = payload[8 ... (payload.length)]
 
           index = index.unpack("L>")[0]
           byte_begin = byte_begin.unpack("L>")[0]
+          block_idx = byte_begin / (@meta_info_file.block_request_size)
+
+          # puts "given block index: #{block_idx}"
 
           puts "Index     : #{index}"
           puts "Byte begin: #{byte_begin}"
-
+          
+          prev_piece_status = @meta_info_file.bitfield.bitfield[index]
           @meta_info_file.set_bitfield(index, byte_begin)
+          cur_piece_status = @meta_info_file.bitfield.bitfield[index]
+
+          # Store block_data in memory.
+          @meta_info_file.bitfield.piece_field[index].block_field_data[block_idx] = block_data
+
+          if( prev_piece_status == false && cur_piece_status == true) then
+            #write piece to disk
+            puts "PIECE DONE!!!!  Writing to disk...."
+            
+            if (@meta_info_file.multi_file == true) then
+              puts "in Peer.recv_msg, dont know how to write out piece for multifile.  Exiting..."
+              exit
+            else
+              @meta_info_file.bitfield.piece_field[index].block_field_data.each{|block|
+              @meta_info_file.file_array[0].fd.write(block)
+              @meta_info_file.file_array[0].fd.flush
+              
+              }
+              # @meta_info_file.file_array[0].fd.close
+              # exit
+
+            end
+
+
+            #remove piece from memory
+          end
+          
 
           $stdout.flush
 
@@ -256,10 +288,10 @@ class Peer
       #@meta_info_file.delete_from_good_peer(self)
       #Thread.exit
 
-    rescue # any other error
+  #  rescue # any other error
       # puts $!, $@
       #puts "Encountered a non-timeout error."
-      #@meta_info_file.delete_from_good_peer(self)
+      # @meta_info_file.delete_from_good_peer(self)
       #Thread.exit
     end
 
