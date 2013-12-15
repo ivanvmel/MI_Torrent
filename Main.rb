@@ -8,12 +8,50 @@ require 'fileutils'
 require './Bitfield'
 require 'fileutils'
 
+
+
+am_seeder = false
+
+if (ARGV[0] == "seed") then
+  am_seeder = true
+elsif (ARGV[0] == "download") then
+   # nothing, already not seeder
+else 
+   puts "Invalid argument.  Appropriate arguments are 'download <filename>', or 'seed <filename>'. Exiting."
+    exit
+end
+
+# Do something if file doesn't exist or whatever
+
+
+
+if am_seeder then
+  puts "I am a SEEDER"
+else
+  puts "I am a LEECHER"
+end
+
+
+
+
 meta_info_files = Array.new
 
 seed_thread = nil
 
+# data.each{|block|
+
+filenames = Array.new
+i = 1
+while ARGV[i] != nil
+  filenames.push(ARGV[i])
+i += 1
+end
+
+puts filenames.inspect
+exit
+
 # we take a comma separated list of trackers
-torrents = ["torrent_2mb.dat.torrent"]
+torrents = filenames
 
 # for each tracker, get an associated meta-info file.
 torrents.each{|torrent|
@@ -67,3 +105,24 @@ meta_info_files.each{ |meta_info_file|
 }
 
 seed_thread.join
+
+
+
+
+
+=begin
+
+  @bitfield
+  @byte_length
+  @meta_info_file
+  @piece_field
+  def initialize(length, meta_info_file, is_peer)
+
+=end
+
+# Loads file from current directory into piece map (shadow map).  Returns bitfield
+def load_file(filename)
+  # initialize seeder bitfield
+  seeder_bf = Bitfield.new(length, nil, false)
+  
+end
