@@ -25,6 +25,7 @@ class Metainfo
   @bitfield
   @block_request_size
   @torrent_length
+  @file_buffer
   def initialize(file_location)
 
     # FOR DEBUGGING, TEMPORARY
@@ -41,6 +42,7 @@ class Metainfo
     # get the trackers
 
     @trackers = Array.new
+    @buffer = Array.new
 
     dict = BEncode::load(File.new(file_location))
 
@@ -134,6 +136,14 @@ class Metainfo
   def add_to_good_peers(peer)
     @lock.synchronize do
       @good_peers.push(peer)
+    end
+  end
+
+  def append_data(block_num, data)
+    @lock.synchronize do
+      if(@file_buffer[block_num].length == 0) then
+        @file_buffer[block_num] = data
+      end
     end
   end
 
@@ -283,7 +293,7 @@ class Metainfo
 
   def run_algorithm(peer)
 
-    sleep_between = 0.2
+    sleep_between = 0.1
 
     # handshake
     peer.handshake()

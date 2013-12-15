@@ -370,13 +370,9 @@ class Peer
     else
 
       # if the peer is not choking us, we want a piece of her
-      random_piece = get_random_piece()
+      #random_piece = get_random_piece()
 
       curr_piece = @meta_info_file.current_piece
-
-      #if(@meta_info_file.bitfield.bitfield[curr_piece] == true) then
-      #@meta_info_file.increment_piece()
-      #end
 
       random_piece = curr_piece
 
