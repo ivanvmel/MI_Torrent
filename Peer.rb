@@ -222,6 +222,13 @@ class Peer
 
         when @piece_id
 
+          puts " I GOT A PIECE YAYAYAYAY"
+          puts " I GOT A PIECE YAYAYAYAY"
+          puts " I GOT A PIECE YAYAYAYAY"
+          puts " I GOT A PIECE YAYAYAYAY"
+          puts " I GOT A PIECE YAYAYAYAY"
+          puts " I GOT A PIECE YAYAYAYAY"
+
           #puts "I got piece_id"
           #puts "I got a piece from #{@string_ip}"
 

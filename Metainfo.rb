@@ -152,10 +152,12 @@ class Metainfo
 
   def seed()
 
-    seed_sleep_amount = 0.5
+    my_bitmap = load_a_file(@top_level_directory)
+
+    seed_sleep_amount = 0.05
 
     seed_thread = Thread.new(){
-      server = TCPServer.new @seed_port # Server bind to port 2000
+      server = TCPServer.new @seed_port
       loop do
 
         client = server.accept    # Wait for a client to connect
@@ -170,8 +172,8 @@ class Metainfo
 
         begin
           # send your bitfield
-          puts "MY VERY OWN BITFIELD : #{send_my_bitfield().inspect}"
-          client.write send_my_bitfield()
+          puts "MY VERY OWN BITFIELD : #{send_my_bitfield(my_bitmap).inspect}"
+          client.write send_my_bitfield(my_bitmap)
           sleep(seed_sleep_amount)
           # unchoke the peer
           client.write create_unchoke().get_processed_message
@@ -221,6 +223,53 @@ class Metainfo
           when @request_id
 
             puts "SEEDER : I GOT A REQUEST FROM THE CLIENT FOR A PIECE"
+
+            begin
+
+              piece_index = additional_data[1...5].unpack("H*")[0].to_i(16)
+              byte_offset = additional_data[5...9].unpack("H*")[0].to_i(16)
+              requested_length = additional_data[9...13].unpack("H*")[0].to_i(16)
+
+              puts "SEEDER : I am being asked for the #{piece_index} index with offset #{byte_offset} and size #{requested_length}"
+
+              puts "LENGTH OF BITMAP : #{my_bitmap.piece_field.length}"
+              puts "LENGTH OF BLOCKF : #{my_bitmap.piece_field[piece_index].block_field_data.length}"
+
+              block_to_send = my_bitmap.piece_field[piece_index].block_field_data[(byte_offset / requested_length)]
+
+              msg_arr = Array.new
+              msg_length = 9 + @block_request_size
+              msg_arr.push(msg_length)
+              processed_length = msg_arr.pack("L>")
+
+              msg_id_array = Array.new
+              msg_id = 7
+              msg_id_array.push(msg_id)
+              processed_msg_id = msg_id_array.pack("C")
+
+              msg_index_array = Array.new
+              msg_index = piece_index
+              msg_index_array.push(msg_index)
+              processed_msg_index = msg_index_array.pack("L>")
+
+              msg_begin_array = Array.new
+              msg_begin = byte_offset
+              msg_begin_array.push(msg_begin)
+              processed_msg_begin = msg_begin_array.pack("L>")
+
+              msg_block = block_to_send
+
+              final_message = "#{processed_length}#{processed_msg_id}#{processed_msg_index}#{processed_msg_begin}#{msg_block}"
+
+              puts "MSG BLOCK LENGTH      #{msg_block.length}"
+              puts "FINAL MESSAGE LENGTH  #{final_message.length}"
+              puts "FINAL MESSAGE CONTENT #{final_message.inspect}"
+
+              client.write(final_message)
+
+            rescue
+              puts $!, $@
+            end
 
           when @piece_id
 
@@ -439,11 +488,11 @@ class Metainfo
 
   end
 
-  def send_my_bitfield()
+  def send_my_bitfield(a_bitfield)
 
     begin
       # the + 1 is for the id
-      bitfield_length = @bitfield.byte_length() + 1
+      bitfield_length = a_bitfield.byte_length() + 1
       id = "\x05";
 
       # this is used for packing
@@ -453,7 +502,7 @@ class Metainfo
       # the > specifies the endian-ness
       encoded_length = temp.pack("L>")
 
-      bitfield_message = "#{encoded_length}#{id}#{@bitfield.struct_to_string}"
+      bitfield_message = "#{encoded_length}#{id}#{a_bitfield.struct_to_string}"
 
     rescue
       puts $!, $@
@@ -471,6 +520,61 @@ class Metainfo
 
   def create_piece(index, byte, block)
     #piece: <len=0009+X><id=7><index><begin><block>
+  end
+
+  def load_a_file(filename)
+
+    puts filename
+
+    seeder_bitmap = Bitfield.new(@num_pieces, self, false)
+
+    begin
+
+      blocks_per_piece = (@piece_length / @block_request_size)
+
+      location = "seeder_files/".concat(filename)
+
+      a_file = File.open(location, "rb")
+
+      #read_file = a_file.read(@block_request_size)
+
+      for i in (0 ... @num_pieces) do
+
+        for j in (0 ... blocks_per_piece) do
+
+          seeder_bitmap.piece_field[i].block_field_data[j] = a_file.read(@block_request_size)
+          seeder_bitmap.piece_field[i].block_field[j] = true
+
+        end
+
+        # here we set the piece as being 'had'
+        seeder_bitmap.bitfield[i] = true
+
+      end
+
+    rescue
+      puts $!, $@
+    end
+
+    return seeder_bitmap
+
+  end
+
+  def write_bitmap_to_file(bitmap)
+
+    bitmap = File.new("output", "w")
+
+    for i in (0 ... seeder_bitmap.piece_field.length) do
+
+      for j in (0 ... seeder_bitmap.piece_field[i].block_field.length) do
+
+        output_file.write(seeder_bitmap.piece_field[i].block_field_data[j])
+        output_file.flush
+
+      end
+    end
+
+    output_file.close
   end
 
   # class ends here

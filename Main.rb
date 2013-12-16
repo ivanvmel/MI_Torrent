@@ -8,31 +8,25 @@ require 'fileutils'
 require './Bitfield'
 require 'fileutils'
 
-
-
+=begin
 am_seeder = false
 
 if (ARGV[0] == "seed") then
   am_seeder = true
 elsif (ARGV[0] == "download") then
    # nothing, already not seeder
-else 
+else
    puts "Invalid argument.  Appropriate arguments are 'download <filename>', or 'seed <filename>'. Exiting."
     exit
 end
 
 # Do something if file doesn't exist or whatever
 
-
-
 if am_seeder then
   puts "I am a SEEDER"
 else
   puts "I am a LEECHER"
 end
-
-
-
 
 meta_info_files = Array.new
 
@@ -44,12 +38,15 @@ filenames = Array.new
 i = 1
 while ARGV[i] != nil
   filenames.push(ARGV[i])
-i += 1
+  i += 1
 end
 
 puts filenames.inspect
 exit
+=end
 
+meta_info_files = Array.new
+filenames = ["pizza.torrent"]
 # we take a comma separated list of trackers
 torrents = filenames
 
@@ -65,7 +62,7 @@ meta_info_files.each{|meta_info_file|
 
   # THIS LITTLE BIT OF TIME IS FOR THE SERVER FIRING UP
   sleep(1)
-  
+
   # make top level directory, if necessary.
   if (meta_info_file.multi_file == true) then
     FileUtils.mkdir(meta_info_file.top_level_directory)
@@ -106,10 +103,6 @@ meta_info_files.each{ |meta_info_file|
 
 seed_thread.join
 
-
-
-
-
 =begin
 
   @bitfield
@@ -124,5 +117,5 @@ seed_thread.join
 def load_file(filename)
   # initialize seeder bitfield
   seeder_bf = Bitfield.new(length, nil, false)
-  
+
 end
