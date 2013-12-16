@@ -262,7 +262,7 @@ class Peer
 
           if(prev_piece_status == false && cur_piece_status == true) then
             #write piece to disk
-            puts "Writing piece #{index} to disk, the torrent is #{(((index.to_f / @meta_info_file.num_pieces).to_f)*100).round(2)} % complete. (#{(index * @meta_info_file.piece_length) / 1024} kb downloaded)"
+            puts "Writing piece #{index} to disk, the torrent is #{((((index+1).to_f / @meta_info_file.num_pieces).to_f)*100).round(2)} % complete. (#{((index+1) * @meta_info_file.piece_length) / 1024} kb downloaded)"
 
             if (@meta_info_file.multi_file == true) then
               puts "in Peer.recv_msg, dont know how to write out piece for multifile.  Exiting..."

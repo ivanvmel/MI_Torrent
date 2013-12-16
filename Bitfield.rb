@@ -45,6 +45,10 @@ class Bitfield
     if(piece_index == nil) then return nil end
 
     current_Piece = @piece_field[piece_index]
+#    if (current_Piece == nil) then
+#      puts "No more pieces; download complete (get_random_block())!"
+#      exit
+#    end
     piece_block_field = current_Piece.block_field
     missing_block_indices = Array.new
 
@@ -167,4 +171,23 @@ class Bitfield
 
   end
 
+
+
+
+def full?
+am_full = true
+  @bitfield.each{|piece|
+    if piece == false then
+      am_full = false
+      break
+    end
+  }
+return am_full
 end
+
+
+
+
+end
+
+

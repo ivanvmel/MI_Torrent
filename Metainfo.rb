@@ -8,7 +8,7 @@ class Metainfo
 
   attr_accessor :trackers, :info_hash, :piece_length, :pieces, :num_pieces,
   :name, :multi_file, :top_level_directory, :file_array, :peers, :good_peers,
-  :peer_threads, :bitfield, :piece_length, :block_request_size, :torrent_length, :current_piece
+  :peer_threads, :bitfield, :piece_length, :block_request_size, :torrent_length, :current_piece, :seed_files_dir
 
   @trackers
   @info_hash
@@ -27,6 +27,8 @@ class Metainfo
   @torrent_length
   @file_buffer
   def initialize(file_location)
+
+    @seed_files_dir = "seeder_files"
 
     # keep_alive has an id of -1, it is treated specially for our implementation - it's length is zero
     @keep_alive_id = -1
@@ -185,7 +187,13 @@ class Metainfo
 
         while true do
 
-          data = client.recv 4
+          begin 
+              data = client.recv 4
+          rescue Errno::ECONNRESET
+            "Peer decided to disconnect.  Exiting seeder thread."
+            Thread.exit
+            break
+          end
 
           length = data[0 ... 4].unpack("H*")[0].to_i(16)
 
@@ -462,6 +470,14 @@ class Metainfo
 
       while true  do
 
+        # If we have all the pieces, then exit!
+        if @bitfield.full? then
+          puts "\n~~~~~~~~~~~ #{@top_level_directory} download complete! ~~~~~~~~~~~"
+          puts ""
+          break
+        end
+          
+
         sleep(sleep_between)
 
         #puts "Good peers : #{@good_peers.length}"
@@ -479,14 +495,15 @@ class Metainfo
       end
 
       peer.socket.close
-      # wait for the listener thread to finish
-      #listener_thread.join
-
+      
     else
       return
     end
 
   end
+
+
+
 
   def send_my_bitfield(a_bitfield)
 
@@ -532,7 +549,7 @@ class Metainfo
 
       blocks_per_piece = (@piece_length / @block_request_size)
 
-      location = "seeder_files/".concat(filename)
+      location = @seed_files_dir + "/" + filename
 
       a_file = File.open(location, "rb")
 

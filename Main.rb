@@ -9,30 +9,25 @@ require './Bitfield'
 require 'fileutils'
 
 
+
 am_seeder = false
+am_leecher = true
 
 if (ARGV[0] == "seed") then
   am_seeder = true
-elsif (ARGV[0] == "download") then
+  am_leecher = false
+  puts "I am a SEEDER"
+elsif (ARGV[0] == "dl") then
    # nothing, already not seeder
+   puts "I am a LEECHER"
+elsif (ARGV[0] == "sd")
+  am_seeder = true
+  am_leecher = true
+  puts "I am a LEECHER and a SEEDER!"
 else
-   puts "Invalid argument.  Appropriate arguments are 'download <filename>', or 'seed <filename>'. Exiting."
+  puts "Invalid syntax(1).  Appropriate arguments are \"[dl|seed|ds] <filenames>\".  Exiting..."
     exit
 end
-
-# Do something if file doesn't exist or whatever
-
-if am_seeder then
-  puts "I am a SEEDER"
-else
-  puts "I am a LEECHER"
-end
-
-meta_info_files = Array.new
-
-seed_thread = nil
-
-# data.each{|block|
 
 filenames = Array.new
 i = 1
@@ -41,28 +36,58 @@ while ARGV[i] != nil
   i += 1
 end
 
+if filenames.empty? then 
+  puts "Invalid syntax(2); filenames must not be empty.  Appropriate arguments are \"[dl|seed|ds] <filenames>\".  Exiting..."
+  exit 
+end
 
-meta_info_files = Array.new
-filenames = ["pizza.torrent"]
+# make sure files actually exists (and is not size zero!)
+filenames.each { |filename|
+  if (!File.exists?(filename)) then
+    puts "Torrent file \"#{filename}\" does NOT exist!  Exiting..."
+    exit
+  end
+}
+
+
+seed_thread = nil
+
 # we take a comma separated list of trackers
 torrents = filenames
+
+meta_info_files = Array.new
 
 # for each tracker, get an associated meta-info file.
 torrents.each{|torrent|
   meta_info_files.push(Metainfo.new(torrent))
 }
 
+# If seeding, make sure metainfo file contains the correct name 
+# (seeder data files should be located in Metainfo.seed_files_dir
+if (am_seeder) then
+  meta_info_files.each{|meta_info_file|
+    datafile_name = meta_info_file.seed_files_dir + "/" + meta_info_file.top_level_directory
+
+    if (!File.exists?(datafile_name)) then
+      puts "Data file #{datafile_name} does NOT exist!  Exiting..."
+      exit 
+    end
+  }
+end
+
 meta_info_files.each{|meta_info_file|
 
+if(am_seeder) then
   # THIS IS WHERE WE START SEEDING - the reason this works is because this only one meta-info file
   seed_thread = meta_info_file.seed()
 
   # THIS LITTLE BIT OF TIME IS FOR THE SERVER FIRING UP
   sleep(1)
+end
 
   # make top level directory, if necessary.
   if (meta_info_file.multi_file == true) then
-    FileUtils.mkdir(meta_info_file.top_level_directory)
+    #FileUtils.mkdir(meta_info_file.top_level_directory)
   end
 
   # Make the rest of the directory tree.
@@ -75,9 +100,12 @@ meta_info_files.each{|meta_info_file|
     File.open(meta_info_file.file_array[0].path, "w")
   end
 
+if (am_leecher) then
   meta_info_file.spawn_peer_threads()
+end
 }
 
+if (am_leecher) then
 # wait for the meta_info_peers to finish
 meta_info_files.each{|meta_info_file|
   meta_info_file.peer_threads.each{|peer|
@@ -86,6 +114,7 @@ meta_info_files.each{|meta_info_file|
   puts "The tracker gave me #{meta_info_file.peers.length} peers"
   puts "I have #{meta_info_file.good_peers.length} good peers"
 }
+end
 
 # clean up
 meta_info_files.each{ |meta_info_file|
@@ -98,21 +127,6 @@ meta_info_files.each{ |meta_info_file|
   end
 }
 
-seed_thread.join
-
-=begin
-
-  @bitfield
-  @byte_length
-  @meta_info_file
-  @piece_field
-  def initialize(length, meta_info_file, is_peer)
-
-=end
-
-# Loads file from current directory into piece map (shadow map).  Returns bitfield
-def load_file(filename)
-  # initialize seeder bitfield
-  seeder_bf = Bitfield.new(length, nil, false)
-
+if(am_seeder) then
+  seed_thread.join
 end
