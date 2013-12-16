@@ -261,9 +261,9 @@ class Metainfo
 
               final_message = "#{processed_length}#{processed_msg_id}#{processed_msg_index}#{processed_msg_begin}#{msg_block}"
 
-              puts "MSG BLOCK LENGTH      #{msg_block.length}"
-              puts "FINAL MESSAGE LENGTH  #{final_message.length}"
-              puts "FINAL MESSAGE CONTENT #{final_message.inspect}"
+             # puts "MSG BLOCK LENGTH      #{msg_block.length}"
+             # puts "FINAL MESSAGE LENGTH  #{final_message.length}"
+             # puts "FINAL MESSAGE CONTENT #{final_message.inspect}"
 
               client.write(final_message)
 

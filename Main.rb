@@ -8,7 +8,7 @@ require 'fileutils'
 require './Bitfield'
 require 'fileutils'
 
-=begin
+
 am_seeder = false
 
 if (ARGV[0] == "seed") then
@@ -41,9 +41,6 @@ while ARGV[i] != nil
   i += 1
 end
 
-puts filenames.inspect
-exit
-=end
 
 meta_info_files = Array.new
 filenames = ["pizza.torrent"]
